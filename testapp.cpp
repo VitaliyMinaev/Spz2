@@ -1,149 +1,78 @@
-﻿#define _WIN32_DCOM
-
-#include <iostream>
-#include <WbemIdl.h>
+﻿#include <iostream>
 #include <Windows.h>
-#pragma comment(lib, "wbemuuid.lib")
+#include <WbemCli.h>
 
-using namespace std;
+#pragma comment(lib, "wbemuuid.lib")
 
 int main()
 {
-	/* Colorize the console */
-	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    using std::cout;
+    using std::cin;
+    using std::endl;
+    //First
+    HRESULT hRes = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+    if (FAILED(hRes)) {
+        cout << "Unable to launch COM: 0x" << std::hex << hRes << endl;
+        return 1;
+    }
+    if ((FAILED(hRes = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_CONNECT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE, 0))))
+    {
+        cout << "Unable to initialize security: 0x" << std::hex << hRes << endl;
+        return 1;
+    }
+    //Second
+    IWbemLocator* pLocator = NULL;
+    if (FAILED(hRes = CoCreateInstance(CLSID_WbemLocator, NULL, CLSCTX_ALL, IID_PPV_ARGS(&pLocator)))) {
+        cout << "Unable to create a WbemLocator: " << std::hex << hRes << endl;
+        return 1;
+    }
+    //Third
+    IWbemServices* pService = NULL;
+    if (FAILED(hRes = pLocator->ConnectServer(BSTR(L"root\\CIMV2"), NULL, NULL, NULL, WBEM_FLAG_CONNECT_USE_MAX_WAIT, NULL, NULL, &pService))) {
+        pLocator->Release();
+        cout << "Unable to connect to \"CIMV2\": " << std::hex << hRes << endl;
+        return 1;
+    }
+    //Fourth
+    IEnumWbemClassObject* pEnumerator = NULL;
+    if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Keyboard"), WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
+        pLocator->Release();
+        pService->Release();
+        cout << "Unable to retrive desktop monitors: " << std::hex << hRes << endl;
+        return 1;
+    }
+    //Fifth
+    IWbemClassObject* clsObj = NULL;
+    int numElems;
+    while ((hRes = pEnumerator->Next(WBEM_INFINITE, 1, &clsObj, (ULONG*)&numElems)) != WBEM_S_FALSE) {
+        if (FAILED(hRes)) {
+            break;
+        }
+        VARIANT vRet;
+        VariantInit(&vRet);
+        if (SUCCEEDED(clsObj->Get(L"SystemName", 0, &vRet, NULL, NULL)))
+        {
+            std::wcout << L"Name: " << vRet.bstrVal << endl;
+            VariantClear(&vRet);
+        }
+        if (SUCCEEDED(clsObj->Get(L"NumberOfFunctionKeys", 0, &vRet, NULL, NULL)))
+        {
+            std::wcout << L"Name: " << vRet.uintVal << endl;
+            VariantClear(&vRet);
+        }
+        //if (SUCCEEDED(clsObj->Get(L"AdapterRAM", 0, &vRet, NULL, NULL)))
+        //{
+        //    std::wcout << L"Name: " << vRet.uintVal << endl;
+        //    VariantClear(&vRet);
+        //}
 
-	/*PART 1*/
+        clsObj->Release();
+    }
+    pEnumerator->Release();
+    pService->Release();
+    pLocator->Release();
 
-	HRESULT hres;
-	hres = CoInitializeEx(0, COINITBASE_MULTITHREADED);
-	if (FAILED(hres) == true) {
-		SetConsoleTextAttribute(hConsole, 12);
-		cout << "Failed to initialize con library. Error code 0x" << hex << hres << endl;
-		SetConsoleTextAttribute(hConsole, 7);
-		return 1;
-	}
-
-	hres = CoInitializeSecurity(
-		NULL,
-		-1,
-		NULL,
-		NULL,
-		RPC_C_AUTHN_LEVEL_DEFAULT,
-		RPC_C_IMP_LEVEL_IMPERSONATE,
-		NULL,
-		EOAC_NONE,
-		NULL);
-
-	if (FAILED(hres) == true) {
-		SetConsoleTextAttribute(hConsole, 12);
-		cout << "Failed to initialize con library. Error code 0x" << hex << hres << endl;
-		SetConsoleTextAttribute(hConsole, 7);
-		return 1;
-	}
-	else {
-		SetConsoleTextAttribute(hConsole, 10);
-		cout << "Con library has been successfully initialized" << endl;
-		SetConsoleTextAttribute(hConsole, 7);
-	}
-
-
-	/*PART 2*/
-
-	IWbemLocator* pLoc = 0;
-
-	hres = CoCreateInstance(CLSID_WbemLocator, 0,
-		CLSCTX_INPROC_SERVER, IID_IWbemLocator, (LPVOID*)&pLoc);
-
-	if (FAILED(hres))
-	{
-		SetConsoleTextAttribute(hConsole, 12);
-		cout << "Failed to create IWbemLocator object. Err code = 0x"
-			<< hex << hres << endl;
-		SetConsoleTextAttribute(hConsole, 7);
-		CoUninitialize();
-		return hres;     // Program has failed.
-	}
-	else {
-		SetConsoleTextAttribute(hConsole, 10);
-		cout << "IWbemLocator object has been successfully created" << endl;
-		SetConsoleTextAttribute(hConsole, 7);
-	}
-
-	IWbemServices* pSvc = 0;
-
-	// Connect to the root\default namespace with the current user.
-	hres = pLoc->ConnectServer(
-		BSTR(L"ROOT\\DEFAULT"),  //namespace
-		NULL,       // User name 
-		NULL,       // User password
-		0,         // Locale 
-		NULL,     // Security flags
-		0,         // Authority 
-		0,        // Context object 
-		&pSvc);   // IWbemServices proxy
-
-
-	if (FAILED(hres))
-	{
-		SetConsoleTextAttribute(hConsole, 12);
-		cout << "Could not connect. Error code = 0x"
-			<< hex << hres << endl;
-		SetConsoleTextAttribute(hConsole, 7);
-		pLoc->Release();
-		CoUninitialize();
-		return hres;      // Program has failed.
-	}
-	SetConsoleTextAttribute(hConsole, 10);
-	cout << "Connected to WMI" << endl;
-	SetConsoleTextAttribute(hConsole, 7);
-
-
-	/*PART 3*/
-
-	/*
-	* IWbemServices* pSvc = 0;
-	* IWbemLocator* pLoc = 0;
-	*/
-
-	// Set the proxy so that impersonation of the client occurs.
-	hres = CoSetProxyBlanket(pSvc,
-		RPC_C_AUTHN_WINNT,
-		RPC_C_AUTHZ_NONE,
-		NULL,
-		RPC_C_AUTHN_LEVEL_CALL,
-		RPC_C_IMP_LEVEL_IMPERSONATE,
-		NULL,
-		EOAC_NONE
-	);
-
-	if (FAILED(hres))
-	{
-		SetConsoleTextAttribute(hConsole, 12);
-		cout << "Could not set proxy blanket. Error code = 0x"
-			<< hex << hres << endl;
-		SetConsoleTextAttribute(hConsole, 7);
-		pSvc->Release();
-		pLoc->Release();
-		CoUninitialize();
-		return hres;      // Program has failed.
-	}
-	else {
-		SetConsoleTextAttribute(hConsole, 10);
-		cout << "Proxy blanket has been successfully created" << endl;
-		SetConsoleTextAttribute(hConsole, 7);
-	}
-
-	/*PART 4*/
-
-	// our realization
-
-
-	/*PART 5*/
-
-	pSvc->Release();
-	pLoc->Release();
-	CoUninitialize();
-
-	system("pause");
-	return 0;
+    system("pause");
+    return 0;
 }
+
