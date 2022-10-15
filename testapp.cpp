@@ -1,18 +1,13 @@
 ﻿#define _WIN32_DCOM
 
 #include <iostream>
-<<<<<<< HEAD
-#include <windows.h>
-#include <wbemidl.h>
-=======
 #include <WbemIdl.h>
 #include <Windows.h>
->>>>>>> 14bffed (Colorized console)
 #pragma comment(lib, "wbemuuid.lib")
 
 using namespace std;
 
-int main() 
+int main()
 {
 	/* Colorize the console */
 	HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -20,48 +15,30 @@ int main()
 	/*PART 1*/
 
 	HRESULT hres;
-<<<<<<< HEAD
-	hres = CoInitializeEx(0, COINIT_MULTITHREADED);
-	if (FAILED(hres))
-	{
-		cout << "Failed to initialize COM library. Error code = 0x"
-			<< hex << hres << endl;
-		return hres;
-=======
 	hres = CoInitializeEx(0, COINITBASE_MULTITHREADED);
 	if (FAILED(hres) == true) {
 		SetConsoleTextAttribute(hConsole, 12);
 		cout << "Failed to initialize con library. Error code 0x" << hex << hres << endl;
 		SetConsoleTextAttribute(hConsole, 7);
 		return 1;
->>>>>>> 14bffed (Colorized console)
 	}
-	
-	hres = CoInitializeSecurity(
-		NULL,                        // Security descriptor    
-		-1,                          // COM negotiates authentication service
-		NULL,                        // Authentication services
-		NULL,                        // Reserved
-		RPC_C_AUTHN_LEVEL_DEFAULT,   // Default authentication level for proxies
-		RPC_C_IMP_LEVEL_IMPERSONATE, // Default Impersonation level for proxies
-		NULL,                        // Authentication info
-		EOAC_NONE,                   // Additional capabilities of the client or server
-		NULL);                       // Reserved
 
-<<<<<<< HEAD
-	if (FAILED(hres))
-	{
-		cout << "Failed to initialize security. Error code = 0x"
-			<< hex << hres << endl;
-		CoUninitialize();
-		return hres;                  // Program has failed.
-=======
+	hres = CoInitializeSecurity(
+		NULL,
+		-1,
+		NULL,
+		NULL,
+		RPC_C_AUTHN_LEVEL_DEFAULT,
+		RPC_C_IMP_LEVEL_IMPERSONATE,
+		NULL,
+		EOAC_NONE,
+		NULL);
+
 	if (FAILED(hres) == true) {
 		SetConsoleTextAttribute(hConsole, 12);
 		cout << "Failed to initialize con library. Error code 0x" << hex << hres << endl;
 		SetConsoleTextAttribute(hConsole, 7);
 		return 1;
->>>>>>> 14bffed (Colorized console)
 	}
 	else {
 		SetConsoleTextAttribute(hConsole, 10);
@@ -123,14 +100,11 @@ int main()
 
 	/*PART 3*/
 
-<<<<<<< HEAD
-=======
 	/*
 	* IWbemServices* pSvc = 0;
 	* IWbemLocator* pLoc = 0;
 	*/
 
->>>>>>> 14bffed (Colorized console)
 	// Set the proxy so that impersonation of the client occurs.
 	hres = CoSetProxyBlanket(pSvc,
 		RPC_C_AUTHN_WINNT,
