@@ -6,7 +6,8 @@
 
 using namespace std;
 
-int main() {
+int main() 
+{
 	HRESULT hr;
 	hr = CoInitializeEx(0, COINITBASE_MULTITHREADED);
 	if (FAILED(hr) == true) {
@@ -29,6 +30,6 @@ int main() {
 		return 1;
 	}
 
-
+	system("pause");
 	return 0;
 }
