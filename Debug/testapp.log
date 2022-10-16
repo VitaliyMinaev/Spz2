@@ -1,4 +1,8 @@
 ﻿  testapp.cpp
-C:\Users\1\source\repos\Spz2\testapp.cpp(75): warning C4715: ShowFullInfoAboutKeyboard: значение возвращается не при всех путях выполнения
-C:\Users\1\source\repos\Spz2\testapp.cpp(114): warning C4715: ShowDescriptionAndNumberOfFunctionKeysOfKeyboard: значение возвращается не при всех путях выполнения
+C:\Users\1\source\repos\Spz2\testapp.cpp(91,12): warning C4129: P: неизвестная escape-последовательность
+C:\Users\1\source\repos\Spz2\testapp.cpp(162): warning C4715: ShowFullInfoAboutKeyboard: значение возвращается не при всех путях выполнения
+C:\Users\1\source\repos\Spz2\testapp.cpp(201): warning C4715: ShowDescriptionAndNumberOfFunctionKeysOfKeyboard: значение возвращается не при всех путях выполнения
+C:\Users\1\source\repos\Spz2\testapp.cpp(271): warning C4715: ShowInfoAboutThreads: значение возвращается не при всех путях выполнения
+C:\Users\1\source\repos\Spz2\testapp.cpp(334): warning C4715: ShowInfoAboutRunningProcess: значение возвращается не при всех путях выполнения
+C:\Users\1\source\repos\Spz2\testapp.cpp(93): warning C4715: GetInfoAboutProcByReadingSize: значение возвращается не при всех путях выполнения
   testapp.vcxproj -> C:\Users\1\source\repos\Spz2\Debug\testapp.exe

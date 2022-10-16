@@ -4,6 +4,7 @@
 #include <vector>
 #include <Psapi.h>
 #include <stdio.h>
+#include <sstream>
 
 #pragma comment(lib, "wbemuuid.lib")
 using namespace std;
@@ -199,6 +200,139 @@ int ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(HRESULT hRes, IWbemLocator*
     cout << endl;
 }
 
+void CreateMsAccessProcess()
+{
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    ZeroMemory(&pi, sizeof(pi));
+    CreateProcess(L"C:\\Program Files (x86)\\Microsoft Office\\Office15\\MSACCESS.EXE", NULL, NULL, NULL, TRUE
+        , REALTIME_PRIORITY_CLASS, NULL, NULL, &si, &pi);
+}
+
+int ShowInfoAboutThreads(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService, int activeProcessId
+    , int numberOfThreads)
+{
+    IEnumWbemClassObject* pEnumerator = NULL;
+
+    if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM WIN32_THREAD WHERE ProcessHandle=")
+        , WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
+        pLocator->Release();
+        pService->Release();
+        cout << "Unable to retrive desktop monitors: " << std::hex << hRes << endl;
+        return 1;
+    }
+
+    IWbemClassObject* clsObj = NULL;
+    int numElems;
+        if (!FAILED(hRes))
+        {
+            while (numberOfThreads != 0)
+            {
+                if ((hRes = pEnumerator->Next(WBEM_INFINITE, 1, &clsObj, (ULONG*)&numElems)) != WBEM_S_FALSE)
+                {
+                    VARIANT vRet;
+                    VariantInit(&vRet);
+                    if (SUCCEEDED(clsObj->Get(L"ProcessHandle", 0, &vRet, NULL, NULL)))
+                    {
+                        std::wcout << L"Id that created process: " << vRet.uintVal << endl;
+                        VariantClear(&vRet);
+                    }
+                    if (SUCCEEDED(clsObj->Get(L"Priority", 0, &vRet, NULL, NULL)))
+                    {
+                        std::wcout << L"Dynamics priority: " << vRet.uintVal << endl;
+                        VariantClear(&vRet);
+                    }
+                    if (SUCCEEDED(clsObj->Get(L"PriorityBase", 0, &vRet, NULL, NULL)))
+                    {
+                        std::wcout << L"Base priority: " << vRet.uintVal << endl;
+                        VariantClear(&vRet);
+                    }
+                    if (SUCCEEDED(clsObj->Get(L"ElapsedTime", 0, &vRet, NULL, NULL)))
+                    {
+                        std::wcout << L"Time spent: " << vRet.uintVal << endl;
+                        VariantClear(&vRet);
+                    }
+                    if (SUCCEEDED(clsObj->Get(L"ThreadState", 0, &vRet, NULL, NULL)))
+                    {
+                        std::wcout << L"State: " << vRet.uintVal << endl;
+                        VariantClear(&vRet);
+                    }
+
+                    numberOfThreads--;
+                    cout << endl;
+                    pEnumerator->Release();
+                }
+            }
+
+        clsObj->Release();
+    }
+}
+
+int ShowInfoAboutRunningProcess(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
+{
+    CreateMsAccessProcess();
+
+    cout << "Third: " << endl << endl;
+
+    IEnumWbemClassObject* pEnumerator = NULL;
+    if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Process WHERE Name = 'MSACCESS.EXE'")
+        , WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
+        pLocator->Release();
+        pService->Release();
+        cout << "Unable to retrive desktop monitors: " << std::hex << hRes << endl;
+        return 1;
+    }
+
+    IWbemClassObject* clsObj = NULL;
+    int numElems;
+    int activeProcessId;
+    int numberOfThreads;
+    if ((hRes = pEnumerator->Next(WBEM_INFINITE, 1, &clsObj, (ULONG*)&numElems)) != WBEM_S_FALSE)
+    {
+        if (!FAILED(hRes)) 
+        {
+            VARIANT vRet;
+            VariantInit(&vRet);
+            if (SUCCEEDED(clsObj->Get(L"ExecutablePath", 0, &vRet, NULL, NULL)))
+            {
+                std::wcout << L"Path: " << vRet.bstrVal << endl;
+                VariantClear(&vRet);
+            }
+            if (SUCCEEDED(clsObj->Get(L"Name", 0, &vRet, NULL, NULL)))
+            {
+                std::wcout << L"Name: " << vRet.bstrVal << endl;
+                VariantClear(&vRet);
+            }
+            if (SUCCEEDED(clsObj->Get(L"Priority", 0, &vRet, NULL, NULL)))
+            {
+                std::wcout << L"Priority: " << vRet.uintVal << endl;
+                VariantClear(&vRet);
+            }
+            if (SUCCEEDED(clsObj->Get(L"ProcessId", 0, &vRet, NULL, NULL)))
+            {
+                activeProcessId = vRet.uintVal;
+                std::wcout << L"Id: " << activeProcessId << endl;
+                VariantClear(&vRet);
+            }
+            if (SUCCEEDED(clsObj->Get(L"ThreadCount", 0, &vRet, NULL, NULL)))
+            {
+                numberOfThreads = vRet.uintVal;
+                std::wcout << L"Thread count: " << numberOfThreads << endl;
+                VariantClear(&vRet);
+            }
+        }
+
+        clsObj->Release();
+    }
+    pEnumerator->Release();
+
+    ShowInfoAboutThreads(hRes, pLocator, pService, activeProcessId, numberOfThreads);
+
+    cout << endl;
+}
+
 int main()
 {
     //First
@@ -229,6 +363,7 @@ int main()
     //Fourth
     ShowFullInfoAboutKeyboard(hRes, pLocator, pService);
     ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(hRes, pLocator, pService);
+    ShowInfoAboutRunningProcess(hRes, pLocator, pService);
     GetInfoAboutProcByReadingSize();
 
     // Fifth
