@@ -3,12 +3,118 @@
 #include <WbemCli.h>
 
 #pragma comment(lib, "wbemuuid.lib")
+using namespace std;
+
+int ShowFullInfoAboutKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
+{
+    cout << "First: " << endl << endl;
+
+    IEnumWbemClassObject* pEnumerator = NULL;
+    if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Keyboard"), WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
+        pLocator->Release();
+        pService->Release();
+        cout << "Unable to retrive desktop monitors: " << std::hex << hRes << endl;
+        return 1;
+    }
+
+    IWbemClassObject* pclsObj;
+    ULONG uReturn = 0;
+    while (pEnumerator)
+    {
+        HRESULT hr = pEnumerator->Next(WBEM_INFINITE, 1,
+            &pclsObj, &uReturn);
+
+        if (0 == uReturn)
+        {
+            break;
+        }
+        SAFEARRAY* sfArray;
+        LONG lstart, lend;
+        VARIANT vtProp;
+        pclsObj->GetNames(0, WBEM_FLAG_ALWAYS, 0, &sfArray);
+        hr = SafeArrayGetLBound(sfArray, 1, &lstart);
+        if (FAILED(hr)) return hr;
+        hr = SafeArrayGetUBound(sfArray, 1, &lend);
+        if (FAILED(hr)) return hr;
+        BSTR* pbstr;
+        hr = SafeArrayAccessData(sfArray, (void HUGEP**) & pbstr);
+        int nIdx = 0;
+        if (SUCCEEDED(hr))
+        {
+            CIMTYPE pType;
+            for (nIdx = lstart; nIdx < lend; nIdx++)
+            {
+
+                hr = pclsObj->Get(pbstr[nIdx], 0, &vtProp, &pType, 0);
+                if (vtProp.vt == VT_NULL)
+                {
+                    continue;
+                }
+                if (pType == CIM_STRING && pType != CIM_EMPTY && pType != CIM_ILLEGAL)
+                {
+                    wcout << " OS Name : " << nIdx << vtProp.bstrVal << endl;
+                }
+
+                VariantClear(&vtProp);
+
+            }
+            hr = SafeArrayUnaccessData(sfArray);
+            if (FAILED(hr)) return hr;
+        }
+
+
+        // Get the value of the Name property
+        /*hr = pclsObj->Get(L"Name", 0, &vtProp, 0, 0);
+        wcout << " OS Name : " << vtProp.bstrVal << endl;
+        VariantClear(&vtProp);*/
+
+        pclsObj->Release();
+
+        cout << endl;
+    }
+}
+
+int ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
+{
+    cout << "Second: " << endl << endl;
+
+    IEnumWbemClassObject* pEnumerator = NULL;
+    if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Keyboard"), WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
+        pLocator->Release();
+        pService->Release();
+        cout << "Unable to retrive desktop monitors: " << std::hex << hRes << endl;
+        return 1;
+    }
+
+    IWbemClassObject* clsObj = NULL;
+    int numElems;
+    while ((hRes = pEnumerator->Next(WBEM_INFINITE, 1, &clsObj, (ULONG*)&numElems)) != WBEM_S_FALSE)
+    {
+        if (FAILED(hRes)) {
+            break;
+        }
+        VARIANT vRet;
+        VariantInit(&vRet);
+        if (SUCCEEDED(clsObj->Get(L"Description", 0, &vRet, NULL, NULL)))
+        {
+            std::wcout << L"Description: " << vRet.bstrVal << endl;
+            VariantClear(&vRet);
+        }
+        if (SUCCEEDED(clsObj->Get(L"NumberOfFunctionKeys", 0, &vRet, NULL, NULL)))
+        {
+            std::wcout << L"Number of function keys: " << vRet.uintVal << endl;
+            VariantClear(&vRet);
+        }
+
+        clsObj->Release();
+    }
+    pEnumerator->Release();
+
+    cout << endl;
+}
 
 int main()
 {
-    using std::cout;
-    using std::cin;
-    using std::endl;
     //First
     HRESULT hRes = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     if (FAILED(hRes)) {
@@ -33,42 +139,12 @@ int main()
         cout << "Unable to connect to \"CIMV2\": " << std::hex << hRes << endl;
         return 1;
     }
-    //Fourth
-    IEnumWbemClassObject* pEnumerator = NULL;
-    if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Keyboard"), WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
-        pLocator->Release();
-        pService->Release();
-        cout << "Unable to retrive desktop monitors: " << std::hex << hRes << endl;
-        return 1;
-    }
-    //Fifth
-    IWbemClassObject* clsObj = NULL;
-    int numElems;
-    while ((hRes = pEnumerator->Next(WBEM_INFINITE, 1, &clsObj, (ULONG*)&numElems)) != WBEM_S_FALSE) {
-        if (FAILED(hRes)) {
-            break;
-        }
-        VARIANT vRet;
-        VariantInit(&vRet);
-        if (SUCCEEDED(clsObj->Get(L"SystemName", 0, &vRet, NULL, NULL)))
-        {
-            std::wcout << L"Name: " << vRet.bstrVal << endl;
-            VariantClear(&vRet);
-        }
-        if (SUCCEEDED(clsObj->Get(L"NumberOfFunctionKeys", 0, &vRet, NULL, NULL)))
-        {
-            std::wcout << L"Name: " << vRet.uintVal << endl;
-            VariantClear(&vRet);
-        }
-        //if (SUCCEEDED(clsObj->Get(L"AdapterRAM", 0, &vRet, NULL, NULL)))
-        //{
-        //    std::wcout << L"Name: " << vRet.uintVal << endl;
-        //    VariantClear(&vRet);
-        //}
 
-        clsObj->Release();
-    }
-    pEnumerator->Release();
+    //Fourth
+    ShowFullInfoAboutKeyboard(hRes, pLocator, pService);
+    ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(hRes, pLocator, pService);
+
+    // Fifth
     pService->Release();
     pLocator->Release();
 
