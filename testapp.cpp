@@ -1,9 +1,95 @@
 ﻿#include <iostream>
 #include <Windows.h>
 #include <WbemCli.h>
+#include <vector>
+#include <Psapi.h>
+#include <stdio.h>
 
 #pragma comment(lib, "wbemuuid.lib")
 using namespace std;
+
+std::string ProcessIdToName(DWORD processId)
+{
+    std::string ret;
+    HANDLE handle = OpenProcess(
+        PROCESS_QUERY_LIMITED_INFORMATION,
+        FALSE,
+        processId /* This is the PID, you can find one from windows task manager */
+    );
+    if (handle)
+    {
+        DWORD buffSize = 1024;
+        CHAR buffer[1024];
+        if (QueryFullProcessImageNameA(handle, 0, buffer, &buffSize))
+        {
+            ret = buffer;
+        }
+        else
+        {
+            printf("Error GetModuleBaseNameA : %lu", GetLastError());
+        }
+        CloseHandle(handle);
+    }
+    else
+    {
+        printf("Error OpenProcess : %lu", GetLastError());
+    }
+    return ret;
+}
+
+int GetInfoAboutProcByReadingSize() {
+    // Get the list of process identifiers.
+
+    DWORD aProcesses[1024], cbNeeded, cProcesses;
+    unsigned int i;
+
+    if (!EnumProcesses(aProcesses, sizeof(aProcesses), &cbNeeded))
+    {
+        return 1;
+    }
+
+    // Calculate how many process identifiers were returned.
+
+    cProcesses = cbNeeded / sizeof(DWORD);
+
+    // Print the memory usage for each process
+    std::vector<PROCESS_MEMORY_COUNTERS> psArr;
+    std::vector<DWORD> psID;
+    for (i = 0; i < cProcesses; i++)
+    {
+        DWORD processID = aProcesses[i];
+        HANDLE hProcess;
+        PROCESS_MEMORY_COUNTERS pmc;
+
+
+        hProcess = OpenProcess(PROCESS_QUERY_INFORMATION |
+            PROCESS_VM_READ,
+            FALSE, processID);
+        if (FAILED(hProcess))
+            return 1;
+
+        if (GetProcessMemoryInfo(hProcess, &pmc, sizeof(pmc)))
+        {
+            psArr.push_back(pmc);
+            psID.push_back(processID);
+        }
+
+        CloseHandle(hProcess);
+    }
+    auto maxReadedSize = psArr[0];
+    auto maxID = psID[0];
+    for (size_t i = 1; i < psArr.size() - 1; i++)
+    {
+        if (maxReadedSize.PeakWorkingSetSize < psArr[i].PeakWorkingSetSize)
+        {
+            maxReadedSize = psArr[i];
+            maxID = psID[i];
+        }
+    }
+    printf("\nProcess ID: %u\n", maxID);
+    printf("\PeakWorkingSetSize: 0x%08X\n", maxReadedSize.PeakPagefileUsage);
+    cout << "Name of process: " << ProcessIdToName(maxID) << endl;
+}
 
 int ShowFullInfoAboutKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
 {
@@ -143,6 +229,7 @@ int main()
     //Fourth
     ShowFullInfoAboutKeyboard(hRes, pLocator, pService);
     ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(hRes, pLocator, pService);
+    GetInfoAboutProcByReadingSize();
 
     // Fifth
     pService->Release();

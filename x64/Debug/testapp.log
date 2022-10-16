@@ -1,0 +1,12 @@
+﻿  testapp.cpp
+C:\Users\bezug\Source\Repos\testapp\testapp\testapp.cpp(68,12): warning C4311: 'type cast': pointer truncation from 'HANDLE' to 'HRESULT'
+C:\Users\bezug\Source\Repos\testapp\testapp\testapp.cpp(68,12): warning C4302: 'type cast': truncation from 'HANDLE' to 'HRESULT'
+C:\Users\bezug\Source\Repos\testapp\testapp\testapp.cpp(90,12): warning C4129: 'P': unrecognized character escape sequence
+C:\Users\bezug\Source\Repos\testapp\testapp\testapp.cpp(90,12): warning C4477: 'printf' : format string '%08X' requires an argument of type 'unsigned int', but variadic argument 1 has type 'SIZE_T'
+C:\Users\bezug\Source\Repos\testapp\testapp\testapp.cpp(90,12): message : consider using '%llX' in the format string
+C:\Users\bezug\Source\Repos\testapp\testapp\testapp.cpp(90,12): message : consider using '%IX' in the format string
+C:\Users\bezug\Source\Repos\testapp\testapp\testapp.cpp(90,12): message : consider using '%I64X' in the format string
+C:\Users\bezug\Source\Repos\testapp\testapp\testapp.cpp(92): warning C4715: 'GetInfoAboutProcByReadingSize': not all control paths return a value
+C:\Users\bezug\Source\Repos\testapp\testapp\testapp.cpp(161): warning C4715: 'ShowFullInfoAboutKeyboard': not all control paths return a value
+C:\Users\bezug\Source\Repos\testapp\testapp\testapp.cpp(200): warning C4715: 'ShowDescriptionAndNumberOfFunctionKeysOfKeyboard': not all control paths return a value
+  testapp.vcxproj -> C:\Users\bezug\Source\Repos\testapp\x64\Debug\testapp.exe
