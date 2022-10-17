@@ -5,9 +5,18 @@
 #include <Psapi.h>
 #include <stdio.h>
 #include <sstream>
+#include <comutil.h>
 
 #pragma comment(lib, "wbemuuid.lib")
+#pragma comment(lib, "comsuppw.lib")
+#pragma comment(lib, "kernel32.lib")
 using namespace std;
+
+HANDLE hConsole;
+
+const wchar_t* bogdanPath = L"C:\\Program Files (x86)\\Microsoft Office\\Office15\\MSACCESS.EXE";
+const wchar_t* myPath = L"C:\\Program Files (x86)\\Unchecky\\unchecky.exe";
+const wchar_t* pathToMsAccess = myPath;
 
 std::string ProcessIdToName(DWORD processId)
 {
@@ -37,7 +46,6 @@ std::string ProcessIdToName(DWORD processId)
     }
     return ret;
 }
-
 int GetInfoAboutProcByReadingSize() {
     // Get the list of process identifiers.
 
@@ -87,15 +95,16 @@ int GetInfoAboutProcByReadingSize() {
             maxID = psID[i];
         }
     }
-    printf("\nProcess ID: %u\n", maxID);
-    printf("\PeakWorkingSetSize: 0x%08X\n", maxReadedSize.PeakPagefileUsage);
-    cout << "Name of process: " << ProcessIdToName(maxID) << endl;
+
+    cout << "PRocess ID: " << maxID << endl;
+    cout << "Peak page file usage" << maxReadedSize.PeakPagefileUsage << endl;
+    cout << "Name of process: " << ProcessIdToName(maxID) << endl << endl;
+
+    return 0;
 }
 
 int ShowFullInfoAboutKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
 {
-    cout << "First: " << endl << endl;
-
     IEnumWbemClassObject* pEnumerator = NULL;
     if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Keyboard"), WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
         pLocator->Release();
@@ -139,7 +148,7 @@ int ShowFullInfoAboutKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemService
                 }
                 if (pType == CIM_STRING && pType != CIM_EMPTY && pType != CIM_ILLEGAL)
                 {
-                    wcout << " OS Name : " << nIdx << vtProp.bstrVal << endl;
+                    wcout << "Property value: " << nIdx << vtProp.bstrVal << endl;
                 }
 
                 VariantClear(&vtProp);
@@ -159,12 +168,11 @@ int ShowFullInfoAboutKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemService
 
         cout << endl;
     }
-}
 
+    return 0;
+}
 int ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
 {
-    cout << "Second: " << endl << endl;
-
     IEnumWbemClassObject* pEnumerator = NULL;
     if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Keyboard"), WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
         pLocator->Release();
@@ -198,6 +206,7 @@ int ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(HRESULT hRes, IWbemLocator*
     pEnumerator->Release();
 
     cout << endl;
+    return 0;
 }
 
 void CreateMsAccessProcess()
@@ -207,17 +216,21 @@ void CreateMsAccessProcess()
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
-    CreateProcess(L"C:\\Program Files (x86)\\Microsoft Office\\Office15\\MSACCESS.EXE", NULL, NULL, NULL, TRUE
+    CreateProcess(pathToMsAccess, NULL, NULL, NULL, TRUE
         , REALTIME_PRIORITY_CLASS, NULL, NULL, &si, &pi);
 }
-
 int ShowInfoAboutThreads(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService, int activeProcessId
     , int numberOfThreads)
 {
     IEnumWbemClassObject* pEnumerator = NULL;
 
-    if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM WIN32_THREAD WHERE ProcessHandle=")
-        , WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
+    stringstream oss;
+    string queryStr = "SELECT * FROM WIN32_THREAD WHERE ProcessHandle=";
+    oss << activeProcessId;
+    queryStr += oss.str();
+
+    BSTR query = _com_util::ConvertStringToBSTR(queryStr.c_str());
+    if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), query, WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
         pLocator->Release();
         pService->Release();
         cout << "Unable to retrive desktop monitors: " << std::hex << hRes << endl;
@@ -226,58 +239,60 @@ int ShowInfoAboutThreads(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pS
 
     IWbemClassObject* clsObj = NULL;
     int numElems;
-        if (!FAILED(hRes))
+    if (!FAILED(hRes))
+    {
+        while (numberOfThreads != 0)
         {
-            while (numberOfThreads != 0)
+            if (FAILED((hRes = pEnumerator->Next(WBEM_INFINITE, 1, &clsObj, (ULONG*)&numElems))) == false)
             {
-                if ((hRes = pEnumerator->Next(WBEM_INFINITE, 1, &clsObj, (ULONG*)&numElems)) != WBEM_S_FALSE)
+                VARIANT vRet;
+                VariantInit(&vRet);
+                if (SUCCEEDED(clsObj->Get(L"ProcessHandle", 0, &vRet, NULL, NULL)))
                 {
-                    VARIANT vRet;
-                    VariantInit(&vRet);
-                    if (SUCCEEDED(clsObj->Get(L"ProcessHandle", 0, &vRet, NULL, NULL)))
-                    {
-                        std::wcout << L"Id that created process: " << vRet.uintVal << endl;
-                        VariantClear(&vRet);
-                    }
-                    if (SUCCEEDED(clsObj->Get(L"Priority", 0, &vRet, NULL, NULL)))
-                    {
-                        std::wcout << L"Dynamics priority: " << vRet.uintVal << endl;
-                        VariantClear(&vRet);
-                    }
-                    if (SUCCEEDED(clsObj->Get(L"PriorityBase", 0, &vRet, NULL, NULL)))
-                    {
-                        std::wcout << L"Base priority: " << vRet.uintVal << endl;
-                        VariantClear(&vRet);
-                    }
-                    if (SUCCEEDED(clsObj->Get(L"ElapsedTime", 0, &vRet, NULL, NULL)))
-                    {
-                        std::wcout << L"Time spent: " << vRet.uintVal << endl;
-                        VariantClear(&vRet);
-                    }
-                    if (SUCCEEDED(clsObj->Get(L"ThreadState", 0, &vRet, NULL, NULL)))
-                    {
-                        std::wcout << L"State: " << vRet.uintVal << endl;
-                        VariantClear(&vRet);
-                    }
-
-                    numberOfThreads--;
-                    cout << endl;
-                    pEnumerator->Release();
+                    std::wcout << L"Id that created process: " << vRet.uintVal << endl;
+                    VariantClear(&vRet);
                 }
+                if (SUCCEEDED(clsObj->Get(L"Priority", 0, &vRet, NULL, NULL)))
+                {
+                    std::wcout << L"Dynamics priority: " << vRet.uintVal << endl;
+                    VariantClear(&vRet);
+                }
+                if (SUCCEEDED(clsObj->Get(L"PriorityBase", 0, &vRet, NULL, NULL)))
+                {
+                    std::wcout << L"Base priority: " << vRet.uintVal << endl;
+                    VariantClear(&vRet);
+                }
+                if (SUCCEEDED(clsObj->Get(L"ElapsedTime", 0, &vRet, NULL, NULL)))
+                {
+                    std::wcout << L"Time spent: " << vRet.uintVal << endl;
+                    VariantClear(&vRet);
+                }
+                if (SUCCEEDED(clsObj->Get(L"ThreadState", 0, &vRet, NULL, NULL)))
+                {
+                    std::wcout << L"State: " << vRet.uintVal << endl;
+                    VariantClear(&vRet);
+                }
+
+                cout << endl;
+                pEnumerator->Release();
             }
+
+            numberOfThreads--;
+        }
 
         clsObj->Release();
     }
+    return 0;
 }
-
 int ShowInfoAboutRunningProcess(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
 {
     CreateMsAccessProcess();
 
-    cout << "Third: " << endl << endl;
-
     IEnumWbemClassObject* pEnumerator = NULL;
-    if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Process WHERE Name = 'MSACCESS.EXE'")
+    // CHANGE !!!
+    // CHANGE !!!
+    // CHANGE !!!
+    if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Process WHERE Name = 'unchecky.exe'")
         , WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
         pLocator->Release();
         pService->Release();
@@ -291,7 +306,7 @@ int ShowInfoAboutRunningProcess(HRESULT hRes, IWbemLocator* pLocator, IWbemServi
     int numberOfThreads;
     if ((hRes = pEnumerator->Next(WBEM_INFINITE, 1, &clsObj, (ULONG*)&numElems)) != WBEM_S_FALSE)
     {
-        if (!FAILED(hRes)) 
+        if (!FAILED(hRes))
         {
             VARIANT vRet;
             VariantInit(&vRet);
@@ -331,27 +346,54 @@ int ShowInfoAboutRunningProcess(HRESULT hRes, IWbemLocator* pLocator, IWbemServi
     ShowInfoAboutThreads(hRes, pLocator, pService, activeProcessId, numberOfThreads);
 
     cout << endl;
+
+    return 0;
+}
+
+void PrintFail(const char* text, HRESULT res) {
+    SetConsoleTextAttribute(hConsole, 12);
+    cout << text << std::hex << res << endl;
+    SetConsoleTextAttribute(hConsole, 7);
+}
+void PrintSuccess(const char* text) {
+    SetConsoleTextAttribute(hConsole, 10);
+    cout << text << endl;
+    SetConsoleTextAttribute(hConsole, 7);
 }
 
 int main()
 {
+    /* Colorized console */
+    hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     //First
     HRESULT hRes = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     if (FAILED(hRes)) {
         cout << "Unable to launch COM: 0x" << std::hex << hRes << endl;
         return 1;
     }
+    else {
+        PrintSuccess("Con library has been successfully initialized");
+    }
+
     if ((FAILED(hRes = CoInitializeSecurity(NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_CONNECT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE, 0))))
     {
         cout << "Unable to initialize security: 0x" << std::hex << hRes << endl;
         return 1;
     }
+    else {
+        PrintSuccess("Security layers has been successfully initialized");
+    }
+
     //Second
     IWbemLocator* pLocator = NULL;
     if (FAILED(hRes = CoCreateInstance(CLSID_WbemLocator, NULL, CLSCTX_ALL, IID_PPV_ARGS(&pLocator)))) {
         cout << "Unable to create a WbemLocator: " << std::hex << hRes << endl;
         return 1;
     }
+    else {
+        PrintSuccess("WbemLocator has been successfully created");
+    }
+
     //Third
     IWbemServices* pService = NULL;
     if (FAILED(hRes = pLocator->ConnectServer(BSTR(L"root\\CIMV2"), NULL, NULL, NULL, WBEM_FLAG_CONNECT_USE_MAX_WAIT, NULL, NULL, &pService))) {
@@ -359,11 +401,38 @@ int main()
         cout << "Unable to connect to \"CIMV2\": " << std::hex << hRes << endl;
         return 1;
     }
+    else {
+        PrintSuccess("Connection to server has been successfully created");
+    }
 
     //Fourth
+
+    // Task 1
+    SetConsoleTextAttribute(hConsole, 13);
+    cout << endl << "The First task: " << endl << endl;
+    SetConsoleTextAttribute(hConsole, 7);
+
     ShowFullInfoAboutKeyboard(hRes, pLocator, pService);
+
+    // Task 2
+    SetConsoleTextAttribute(hConsole, 13);
+    cout << endl << "THe Second task: " << endl << endl;
+    SetConsoleTextAttribute(hConsole, 7);
+
     ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(hRes, pLocator, pService);
+
+    // Task 3
+    SetConsoleTextAttribute(hConsole, 13);
+    cout << endl << "The Third task" << endl << endl;
+    SetConsoleTextAttribute(hConsole, 7);
+
     ShowInfoAboutRunningProcess(hRes, pLocator, pService);
+
+    // Task 4
+    SetConsoleTextAttribute(hConsole, 13);
+    cout << endl << "The Fourth task" << endl << endl;
+    SetConsoleTextAttribute(hConsole, 7);
+
     GetInfoAboutProcByReadingSize();
 
     // Fifth
@@ -373,4 +442,3 @@ int main()
     system("pause");
     return 0;
 }
-
