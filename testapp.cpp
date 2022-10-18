@@ -7,6 +7,9 @@
 #include <sstream>
 #include <comutil.h>
 
+#include <tchar.h>
+#include <wbemidl.h>
+
 #pragma comment(lib, "wbemuuid.lib")
 #pragma comment(lib, "comsuppw.lib")
 #pragma comment(lib, "kernel32.lib")
@@ -18,6 +21,10 @@ const wchar_t* bogdanPath = L"C:\\Program Files (x86)\\Microsoft Office\\Office1
 const wchar_t* myPath = L"C:\\Program Files (x86)\\Unchecky\\unchecky.exe";
 const wchar_t* pathToMsAccess = myPath;
 
+void PrintFail(const char* text, HRESULT res);
+void PrintSuccess(const char* text);
+
+// Task 4
 std::string ProcessIdToName(DWORD processId)
 {
     std::string ret;
@@ -103,6 +110,7 @@ int GetInfoAboutProcByReadingSize() {
     return 0;
 }
 
+// Task 1
 int ShowFullInfoAboutKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
 {
     IEnumWbemClassObject* pEnumerator = NULL;
@@ -158,12 +166,6 @@ int ShowFullInfoAboutKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemService
             if (FAILED(hr)) return hr;
         }
 
-
-        // Get the value of the Name property
-        /*hr = pclsObj->Get(L"Name", 0, &vtProp, 0, 0);
-        wcout << " OS Name : " << vtProp.bstrVal << endl;
-        VariantClear(&vtProp);*/
-
         pclsObj->Release();
 
         cout << endl;
@@ -171,6 +173,7 @@ int ShowFullInfoAboutKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemService
 
     return 0;
 }
+// Task 2
 int ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
 {
     IEnumWbemClassObject* pEnumerator = NULL;
@@ -209,6 +212,7 @@ int ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(HRESULT hRes, IWbemLocator*
     return 0;
 }
 
+// Task 3
 void CreateMsAccessProcess()
 {
     STARTUPINFO si;
@@ -350,15 +354,218 @@ int ShowInfoAboutRunningProcess(HRESULT hRes, IWbemLocator* pLocator, IWbemServi
     return 0;
 }
 
-void PrintFail(const char* text, HRESULT res) {
-    SetConsoleTextAttribute(hConsole, 12);
-    cout << text << std::hex << res << endl;
-    SetConsoleTextAttribute(hConsole, 7);
+// Task 5a
+HRESULT StopLowPriorityNotepadProcess(IWbemServices* pSvc)
+{
+    HRESULT hr = S_OK;
+
+    static LPCTSTR lpszMethod = _T("Terminate");
+    static LPCTSTR lpszClass = _T("Win32_Process");
+
+    IWbemClassObject* pClsInParam = NULL;
+    IWbemClassObject* pClsInParamInst = NULL;
+
+    BSTR bszClsMoniker = NULL;
+    VARIANT v;
+
+    VariantInit(&v);
+
+    IEnumWbemClassObject* pEnum = NULL;
+
+    hr = pSvc->ExecQuery(
+        (BSTR)_T("WQL"),
+        (BSTR)_T("SELECT * ")
+        _T("FROM Win32_Process ")
+        _T("WHERE Name='notepad.exe' AND Priority='4'"),
+        0,
+        NULL, &pEnum
+    );
+
+    IWbemClassObject* pObj = NULL;
+    IWbemClassObject* pClsDef = NULL;
+    if (FAILED(hr))
+        goto fail;
+
+    hr = pSvc->GetObject(
+        (BSTR)lpszClass, 0,
+        NULL, &pClsDef, NULL
+    );
+
+    hr = pClsDef->GetMethod(
+        lpszMethod, 0,
+        &pClsInParam, NULL
+    );
+
+    hr = pClsInParam->SpawnInstance(0, &pClsInParamInst);
+
+    V_VT(&v) = VT_UI4;
+    V_UI4(&v) = 0;
+    pClsInParamInst->Put(_T("Reason"), 0, &v, CIM_UINT32);
+
+    while (1) {
+        ULONG uRet = 0;
+        pEnum->Next(WBEM_INFINITE, 1, &pObj, &uRet);
+
+        if (uRet == 0)
+            break;
+
+        pObj->Get(
+            _T("Handle"), 0,
+            &v, 0, 0
+        );
+
+        bszClsMoniker = SysAllocString(_T("Win32_Process.Handle='"));
+        VarBstrCat(bszClsMoniker, V_BSTR(&v), &bszClsMoniker);
+        VarBstrCat(bszClsMoniker, (BSTR)_T("'"), &bszClsMoniker);
+
+        hr = pSvc->ExecMethod(
+            bszClsMoniker, (BSTR)lpszMethod, 0,
+            NULL, pClsInParamInst, NULL, NULL
+        );
+
+        SysFreeString(bszClsMoniker);
+
+        if (FAILED(hr)) {
+            _tprintf_s(_T("ExecMethod failed, hr: %lX\n"), hr);
+            goto fail;
+        }
+    }
+
+    PrintSuccess("Task 5a was completed successfully.");
+    return hr;
+
+    fail:
+        PrintFail("Task 5a - something goes wrong", hr);
+        VariantClear(&v);
+        pClsInParamInst->Release();
+        pClsInParam->Release();
+        pClsDef->Release();
+        pObj->Release();
+        pEnum->Release();
 }
-void PrintSuccess(const char* text) {
-    SetConsoleTextAttribute(hConsole, 10);
-    cout << text << endl;
-    SetConsoleTextAttribute(hConsole, 7);
+// Task 5b
+HRESULT StopTotalCommanderChildProcess(IWbemServices* pSvc)
+{
+    HRESULT hr = S_OK;
+
+    IEnumWbemClassObject* pEnum = NULL;
+    IWbemClassObject* pClsInParam = NULL;
+
+    IWbemClassObject* pClsInParamInst = NULL;
+
+    static LPCTSTR lpszMethod = _T("Terminate");
+    static LPCTSTR lpszClass = _T("Win32_Process");
+
+    BSTR bszWQLQueryChild = NULL;
+
+    VARIANT v;
+
+    VariantInit(&v);
+
+    IWbemClassObject* pClsDef = NULL;
+
+    hr = pSvc->GetObject(
+        (BSTR)lpszClass, 0,
+        NULL, &pClsDef, NULL
+    );
+
+    hr = pClsDef->GetMethod(
+        lpszMethod, 0,
+        &pClsInParam, NULL
+    );
+
+    hr = pClsInParam->SpawnInstance(0, &pClsInParamInst);
+
+    V_VT(&v) = VT_UI4;
+    V_UI4(&v) = 0;
+
+    pClsInParamInst->Put(_T("Reason"), 0, &v, CIM_UINT32);
+
+    hr = pSvc->ExecQuery(
+        (BSTR)_T("WQL"),
+        (BSTR)_T("SELECT * ")
+        _T("FROM Win32_Process ")
+        _T("WHERE Name='totalcmd.exe' OR Name='totalcmd64.exe'"),
+        0,
+        NULL, &pEnum
+    );
+
+    IWbemClassObject* pObj = NULL;
+
+    if (FAILED(hr))
+        goto fail;
+
+    while (1) {
+        IEnumWbemClassObject* pEnumChild = NULL;
+        IWbemClassObject* pObjChild = NULL;
+
+        ULONG uRet = 0;
+
+        bszWQLQueryChild = SysAllocString(
+            _T("SELECT * ")
+            _T("FROM Win32_Process ")
+            _T("WHERE ParentProcessId=")
+        );
+
+        pEnum->Next(WBEM_INFINITE, 1, &pObj, &uRet);
+
+        if (uRet == 0)
+            break;
+
+        pObj->Get(
+            _T("Handle"), 0,
+            &v, 0, 0
+        );
+
+        VarBstrCat(bszWQLQueryChild, V_BSTR(&v), &bszWQLQueryChild);
+
+        hr = pSvc->ExecQuery(
+            (BSTR)_T("WQL"),
+            bszWQLQueryChild,
+            0,
+            NULL, &pEnumChild
+        );
+
+        if (FAILED(hr))
+            goto fail;
+
+        while (1) {
+            ULONG uRet = 0;
+            pEnumChild->Next(WBEM_INFINITE, 1, &pObjChild, &uRet);
+
+            if (uRet == 0)
+                break;
+
+            pObjChild->Get(
+                _T("__PATH"), 0,
+                &v, 0, 0
+            );
+
+            hr = pSvc->ExecMethod(
+                V_BSTR(&v), (BSTR)lpszMethod, 0,
+                NULL, pClsInParamInst, NULL, NULL
+            );
+
+            if (FAILED(hr)) {
+                _tprintf_s(_T("ExecMethod failed, hr: %lX\n"), hr);
+                goto fail;
+            }
+        }
+        SysFreeString(bszWQLQueryChild);
+    }
+
+    PrintSuccess("Task 5b was completed successfully.");
+    return hr;
+
+fail:
+    PrintFail("Task 5a - something goes wrong", hr);
+    SysFreeString(bszWQLQueryChild);
+    VariantClear(&v);
+    pClsInParamInst->Release();
+    pClsInParam->Release();
+    pClsDef->Release();
+    pObj->Release();
+    pEnum->Release();
 }
 
 int main()
@@ -416,7 +623,7 @@ int main()
 
     // Task 2
     SetConsoleTextAttribute(hConsole, 13);
-    cout << endl << "THe Second task: " << endl << endl;
+    cout << endl << "The Second task: " << endl << endl;
     SetConsoleTextAttribute(hConsole, 7);
 
     ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(hRes, pLocator, pService);
@@ -435,10 +642,35 @@ int main()
 
     GetInfoAboutProcByReadingSize();
 
+    // Task 5a
+    SetConsoleTextAttribute(hConsole, 13);
+    cout << endl << "5a task" << endl << endl;
+    SetConsoleTextAttribute(hConsole, 7);
+
+    StopLowPriorityNotepadProcess(pService);
+
+    // Task 5b
+    SetConsoleTextAttribute(hConsole, 13);
+    cout << endl << "5b task" << endl << endl;
+    SetConsoleTextAttribute(hConsole, 7);
+
+    StopTotalCommanderChildProcess(pService);
+
     // Fifth
     pService->Release();
     pLocator->Release();
 
     system("pause");
     return 0;
+}
+
+void PrintFail(const char* text, HRESULT res) {
+    SetConsoleTextAttribute(hConsole, 12);
+    cout << text << std::hex << res << endl;
+    SetConsoleTextAttribute(hConsole, 7);
+}
+void PrintSuccess(const char* text) {
+    SetConsoleTextAttribute(hConsole, 10);
+    cout << text << endl;
+    SetConsoleTextAttribute(hConsole, 7);
 }
