@@ -274,12 +274,12 @@ int ShowInfoAboutThreads(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pS
                 }
 
                 cout << endl;
-                pEnumerator->Release();
             }
 
             numberOfThreads--;
+            
         }
-
+        pEnumerator->Release();
         clsObj->Release();
     }
     return 0;
