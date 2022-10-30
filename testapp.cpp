@@ -17,101 +17,17 @@ using namespace std;
 
 HANDLE hConsole;
 
-const wchar_t* bogdanPath = L"C:\\Program Files (x86)\\Microsoft Office\\Office15\\MSACCESS.EXE";
-const wchar_t* myPath = L"C:\\Program Files (x86)\\Unchecky\\unchecky.exe";
+// To change moment
+const wchar_t* oleksiyPath = L"C:\\Program Files (x86)\\Microsoft Office\\Office15\\MSACCESS.EXE";
+const wchar_t* myPath = L"C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE";
 const wchar_t* pathToMsAccess = myPath;
 
+// Prototypes
 void PrintFail(const char* text, HRESULT res);
 void PrintSuccess(const char* text);
 
-// Task 4
-std::string ProcessIdToName(DWORD processId)
-{
-    std::string ret;
-    HANDLE handle = OpenProcess(
-        PROCESS_QUERY_LIMITED_INFORMATION,
-        FALSE,
-        processId /* This is the PID, you can find one from windows task manager */
-    );
-    if (handle)
-    {
-        DWORD buffSize = 1024;
-        CHAR buffer[1024];
-        if (QueryFullProcessImageNameA(handle, 0, buffer, &buffSize))
-        {
-            ret = buffer;
-        }
-        else
-        {
-            printf("Error GetModuleBaseNameA : %lu", GetLastError());
-        }
-        CloseHandle(handle);
-    }
-    else
-    {
-        printf("Error OpenProcess : %lu", GetLastError());
-    }
-    return ret;
-}
-int GetInfoAboutProcByReadingSize() {
-    // Get the list of process identifiers.
-
-    DWORD aProcesses[1024], cbNeeded, cProcesses;
-    unsigned int i;
-
-    if (!EnumProcesses(aProcesses, sizeof(aProcesses), &cbNeeded))
-    {
-        return 1;
-    }
-
-    // Calculate how many process identifiers were returned.
-
-    cProcesses = cbNeeded / sizeof(DWORD);
-
-    // Print the memory usage for each process
-    std::vector<PROCESS_MEMORY_COUNTERS> psArr;
-    std::vector<DWORD> psID;
-    for (i = 0; i < cProcesses; i++)
-    {
-        DWORD processID = aProcesses[i];
-        HANDLE hProcess;
-        PROCESS_MEMORY_COUNTERS pmc;
-
-
-        hProcess = OpenProcess(PROCESS_QUERY_INFORMATION |
-            PROCESS_VM_READ,
-            FALSE, processID);
-        if (FAILED(hProcess))
-            return 1;
-
-        if (GetProcessMemoryInfo(hProcess, &pmc, sizeof(pmc)))
-        {
-            psArr.push_back(pmc);
-            psID.push_back(processID);
-        }
-
-        CloseHandle(hProcess);
-    }
-    auto maxReadedSize = psArr[0];
-    auto maxID = psID[0];
-    for (size_t i = 1; i < psArr.size() - 1; i++)
-    {
-        if (maxReadedSize.PeakWorkingSetSize < psArr[i].PeakWorkingSetSize)
-        {
-            maxReadedSize = psArr[i];
-            maxID = psID[i];
-        }
-    }
-
-    cout << "PRocess ID: " << maxID << endl;
-    cout << "Peak page file usage" << maxReadedSize.PeakPagefileUsage << endl;
-    cout << "Name of process: " << ProcessIdToName(maxID) << endl << endl;
-
-    return 0;
-}
-
 // Task 1
-int ShowFullInfoAboutKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
+int PrintKeyboardInfo(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
 {
     IEnumWbemClassObject* pEnumerator = NULL;
     if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Keyboard"), WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
@@ -174,7 +90,7 @@ int ShowFullInfoAboutKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemService
     return 0;
 }
 // Task 2
-int ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
+int PrintKeyboardSpecificInfo(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
 {
     IEnumWbemClassObject* pEnumerator = NULL;
     if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Keyboard"), WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
@@ -186,26 +102,30 @@ int ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(HRESULT hRes, IWbemLocator*
 
     IWbemClassObject* clsObj = NULL;
     int numElems;
-    while ((hRes = pEnumerator->Next(WBEM_INFINITE, 1, &clsObj, (ULONG*)&numElems)) != WBEM_S_FALSE)
-    {
-        if (FAILED(hRes)) {
-            break;
-        }
-        VARIANT vRet;
-        VariantInit(&vRet);
-        if (SUCCEEDED(clsObj->Get(L"Description", 0, &vRet, NULL, NULL)))
-        {
-            std::wcout << L"Description: " << vRet.bstrVal << endl;
-            VariantClear(&vRet);
-        }
-        if (SUCCEEDED(clsObj->Get(L"NumberOfFunctionKeys", 0, &vRet, NULL, NULL)))
-        {
-            std::wcout << L"Number of function keys: " << vRet.uintVal << endl;
-            VariantClear(&vRet);
-        }
+    hRes = pEnumerator->Next(WBEM_INFINITE, 1, &clsObj, (ULONG*)&numElems);
 
-        clsObj->Release();
+    if (FAILED(hRes)) {
+        pLocator->Release();
+        pService->Release();
+        cout << "Unable to retrive info about keyboard: " << std::hex << hRes << endl;
+        return 1;
     }
+
+    VARIANT vRet;
+    VariantInit(&vRet);
+    if (SUCCEEDED(clsObj->Get(L"Description", 0, &vRet, NULL, NULL)))
+    {
+        std::wcout << L"Description: " << vRet.bstrVal << endl;
+        VariantClear(&vRet);
+    }
+    if (SUCCEEDED(clsObj->Get(L"NumberOfFunctionKeys", 0, &vRet, NULL, NULL)))
+    {
+        std::wcout << L"Number of function keys: " << vRet.uintVal << endl;
+        VariantClear(&vRet);
+    }
+
+    clsObj->Release();
+
     pEnumerator->Release();
 
     cout << endl;
@@ -223,14 +143,14 @@ void CreateMsAccessProcess()
     CreateProcess(pathToMsAccess, NULL, NULL, NULL, TRUE
         , REALTIME_PRIORITY_CLASS, NULL, NULL, &si, &pi);
 }
-int ShowInfoAboutThreads(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService, int activeProcessId
-    , int numberOfThreads)
+int ShowInfoAboutThreads(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService, int processId
+    , int threadsCount)
 {
     IEnumWbemClassObject* pEnumerator = NULL;
 
     stringstream oss;
     string queryStr = "SELECT * FROM WIN32_THREAD WHERE ProcessHandle=";
-    oss << activeProcessId;
+    oss << processId;
     queryStr += oss.str();
 
     BSTR query = _com_util::ConvertStringToBSTR(queryStr.c_str());
@@ -245,7 +165,7 @@ int ShowInfoAboutThreads(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pS
     int numElems;
     if (!FAILED(hRes))
     {
-        while (numberOfThreads != 0)
+        while (threadsCount != 0)
         {
             if (FAILED((hRes = pEnumerator->Next(WBEM_INFINITE, 1, &clsObj, (ULONG*)&numElems))) == false)
             {
@@ -280,15 +200,15 @@ int ShowInfoAboutThreads(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pS
                 cout << endl;
             }
 
-            numberOfThreads--;
-            
+            threadsCount--;
+
         }
         pEnumerator->Release();
         clsObj->Release();
     }
     return 0;
 }
-int ShowInfoAboutRunningProcess(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
+int PrintRunningProcessInfo(HRESULT hRes, IWbemLocator* pLocator, IWbemServices* pService)
 {
     CreateMsAccessProcess();
 
@@ -296,7 +216,7 @@ int ShowInfoAboutRunningProcess(HRESULT hRes, IWbemLocator* pLocator, IWbemServi
     // CHANGE !!!
     // CHANGE !!!
     // CHANGE !!!
-    if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Process WHERE Name = 'unchecky.exe'")
+    if (FAILED(hRes = pService->ExecQuery(BSTR(L"WQL"), BSTR(L"SELECT * FROM Win32_Process WHERE Name = 'EXCEL.EXE'")
         , WBEM_FLAG_FORWARD_ONLY, NULL, &pEnumerator))) {
         pLocator->Release();
         pService->Release();
@@ -354,8 +274,94 @@ int ShowInfoAboutRunningProcess(HRESULT hRes, IWbemLocator* pLocator, IWbemServi
     return 0;
 }
 
+// Task 4
+std::string ProcessIdToName(DWORD processId)
+{
+    std::string ret;
+    HANDLE handle = OpenProcess(
+        PROCESS_QUERY_LIMITED_INFORMATION,
+        FALSE,
+        processId /* This is the PID, you can find one from windows task manager */
+    );
+    if (handle)
+    {
+        DWORD buffSize = 1024;
+        CHAR buffer[1024];
+        if (QueryFullProcessImageNameA(handle, 0, buffer, &buffSize))
+        {
+            ret = buffer;
+        }
+        else
+        {
+            printf("Error GetModuleBaseNameA : %lu", GetLastError());
+        }
+        CloseHandle(handle);
+    }
+    else
+    {
+        printf("Error OpenProcess : %lu", GetLastError());
+    }
+    return ret;
+}
+int PrintInfoAboutProcessWithMaxReadedSize() {
+    // Get the list of process identifiers.
+
+    DWORD aProcesses[1024], cbNeeded, cProcesses;
+    unsigned int i;
+
+    if (!EnumProcesses(aProcesses, sizeof(aProcesses), &cbNeeded))
+    {
+        return 1;
+    }
+
+    // Calculate how many process identifiers were returned.
+
+    cProcesses = cbNeeded / sizeof(DWORD);
+
+    // Print the memory usage for each process
+    std::vector<PROCESS_MEMORY_COUNTERS> psArr;
+    std::vector<DWORD> psID;
+    for (i = 0; i < cProcesses; i++)
+    {
+        DWORD processID = aProcesses[i];
+        HANDLE hProcess;
+        PROCESS_MEMORY_COUNTERS pmc;
+
+
+        hProcess = OpenProcess(PROCESS_QUERY_INFORMATION |
+            PROCESS_VM_READ,
+            FALSE, processID);
+        if (FAILED(hProcess))
+            return 1;
+
+        if (GetProcessMemoryInfo(hProcess, &pmc, sizeof(pmc)))
+        {
+            psArr.push_back(pmc);
+            psID.push_back(processID);
+        }
+
+        CloseHandle(hProcess);
+    }
+    auto maxReadedSize = psArr[0];
+    auto maxID = psID[0];
+    for (size_t i = 1; i < psArr.size() - 1; i++)
+    {
+        if (maxReadedSize.PeakWorkingSetSize < psArr[i].PeakWorkingSetSize)
+        {
+            maxReadedSize = psArr[i];
+            maxID = psID[i];
+        }
+    }
+
+    cout << "Process ID: " << maxID << endl;
+    cout << "Peak page file usage" << maxReadedSize.PeakPagefileUsage << endl;
+    cout << "Name of process: " << ProcessIdToName(maxID) << endl << endl;
+
+    return 0;
+}
+
 // Task 5a
-HRESULT StopLowPriorityNotepadProcess(IWbemServices* pSvc)
+HRESULT KillLowPriorityNotepadProcess(IWbemServices* pService)
 {
     HRESULT hr = S_OK;
 
@@ -372,7 +378,7 @@ HRESULT StopLowPriorityNotepadProcess(IWbemServices* pSvc)
 
     IEnumWbemClassObject* pEnum = NULL;
 
-    hr = pSvc->ExecQuery(
+    hr = pService->ExecQuery(
         (BSTR)_T("WQL"),
         (BSTR)_T("SELECT * ")
         _T("FROM Win32_Process ")
@@ -386,7 +392,7 @@ HRESULT StopLowPriorityNotepadProcess(IWbemServices* pSvc)
     if (FAILED(hr))
         goto fail;
 
-    hr = pSvc->GetObject(
+    hr = pService->GetObject(
         (BSTR)lpszClass, 0,
         NULL, &pClsDef, NULL
     );
@@ -418,7 +424,7 @@ HRESULT StopLowPriorityNotepadProcess(IWbemServices* pSvc)
         VarBstrCat(bszClsMoniker, V_BSTR(&v), &bszClsMoniker);
         VarBstrCat(bszClsMoniker, (BSTR)_T("'"), &bszClsMoniker);
 
-        hr = pSvc->ExecMethod(
+        hr = pService->ExecMethod(
             bszClsMoniker, (BSTR)lpszMethod, 0,
             NULL, pClsInParamInst, NULL, NULL
         );
@@ -444,7 +450,7 @@ HRESULT StopLowPriorityNotepadProcess(IWbemServices* pSvc)
         pEnum->Release();
 }
 // Task 5b
-HRESULT StopTotalCommanderChildProcess(IWbemServices* pSvc)
+HRESULT KillTotalCommanderChildProcess(IWbemServices* pService)
 {
     HRESULT hr = S_OK;
 
@@ -464,7 +470,7 @@ HRESULT StopTotalCommanderChildProcess(IWbemServices* pSvc)
 
     IWbemClassObject* pClsDef = NULL;
 
-    hr = pSvc->GetObject(
+    hr = pService->GetObject(
         (BSTR)lpszClass, 0,
         NULL, &pClsDef, NULL
     );
@@ -481,7 +487,7 @@ HRESULT StopTotalCommanderChildProcess(IWbemServices* pSvc)
 
     pClsInParamInst->Put(_T("Reason"), 0, &v, CIM_UINT32);
 
-    hr = pSvc->ExecQuery(
+    hr = pService->ExecQuery(
         (BSTR)_T("WQL"),
         (BSTR)_T("SELECT * ")
         _T("FROM Win32_Process ")
@@ -519,7 +525,7 @@ HRESULT StopTotalCommanderChildProcess(IWbemServices* pSvc)
 
         VarBstrCat(bszWQLQueryChild, V_BSTR(&v), &bszWQLQueryChild);
 
-        hr = pSvc->ExecQuery(
+        hr = pService->ExecQuery(
             (BSTR)_T("WQL"),
             bszWQLQueryChild,
             0,
@@ -541,7 +547,7 @@ HRESULT StopTotalCommanderChildProcess(IWbemServices* pSvc)
                 &v, 0, 0
             );
 
-            hr = pSvc->ExecMethod(
+            hr = pService->ExecMethod(
                 V_BSTR(&v), (BSTR)lpszMethod, 0,
                 NULL, pClsInParamInst, NULL, NULL
             );
@@ -570,9 +576,9 @@ fail:
 
 int main()
 {
-    /* Colorized console */
+    // Colorized console
     hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    //First
+
     HRESULT hRes = CoInitializeEx(NULL, COINIT_MULTITHREADED);
     if (FAILED(hRes)) {
         cout << "Unable to launch COM: 0x" << std::hex << hRes << endl;
@@ -591,7 +597,6 @@ int main()
         PrintSuccess("Security layers has been successfully initialized");
     }
 
-    //Second
     IWbemLocator* pLocator = NULL;
     if (FAILED(hRes = CoCreateInstance(CLSID_WbemLocator, NULL, CLSCTX_ALL, IID_PPV_ARGS(&pLocator)))) {
         cout << "Unable to create a WbemLocator: " << std::hex << hRes << endl;
@@ -601,7 +606,6 @@ int main()
         PrintSuccess("WbemLocator has been successfully created");
     }
 
-    //Third
     IWbemServices* pService = NULL;
     if (FAILED(hRes = pLocator->ConnectServer(BSTR(L"root\\CIMV2"), NULL, NULL, NULL, WBEM_FLAG_CONNECT_USE_MAX_WAIT, NULL, NULL, &pService))) {
         pLocator->Release();
@@ -612,51 +616,39 @@ int main()
         PrintSuccess("Connection to server has been successfully created");
     }
 
-    //Fourth
+    // The First task
+    cout << endl << "Full info about keyboard (Win32_KeyBoard): " << endl << endl;
 
-    // Task 1
-    SetConsoleTextAttribute(hConsole, 13);
-    cout << endl << "The First task: " << endl << endl;
-    SetConsoleTextAttribute(hConsole, 7);
+    PrintKeyboardInfo(hRes, pLocator, pService);
 
-    ShowFullInfoAboutKeyboard(hRes, pLocator, pService);
+    // The Second task
+    cout << endl << "Description and number of funcrion keys: " << endl << endl;
 
-    // Task 2
-    SetConsoleTextAttribute(hConsole, 13);
-    cout << endl << "The Second task: " << endl << endl;
-    SetConsoleTextAttribute(hConsole, 7);
+    PrintKeyboardSpecificInfo(hRes, pLocator, pService);
 
-    ShowDescriptionAndNumberOfFunctionKeysOfKeyboard(hRes, pLocator, pService);
+    // The Third task
+    cout << endl << "Info about running process: " << endl << endl;
 
-    // Task 3
-    SetConsoleTextAttribute(hConsole, 13);
-    cout << endl << "The Third task" << endl << endl;
-    SetConsoleTextAttribute(hConsole, 7);
+    PrintRunningProcessInfo(hRes, pLocator, pService);
 
-    ShowInfoAboutRunningProcess(hRes, pLocator, pService);
+    // The Fourth task
+    cout << endl << "Info about process, which has the biggest readed size: " << endl << endl;
 
-    // Task 4
-    SetConsoleTextAttribute(hConsole, 13);
-    cout << endl << "The Fourth task" << endl << endl;
-    SetConsoleTextAttribute(hConsole, 7);
-
-    GetInfoAboutProcByReadingSize();
+    PrintInfoAboutProcessWithMaxReadedSize();
 
     // Task 5a
-    SetConsoleTextAttribute(hConsole, 13);
-    cout << endl << "5a task" << endl << endl;
-    SetConsoleTextAttribute(hConsole, 7);
+    cout << endl << "Stop lop priotiry notepad process: " << endl << endl;
 
-    StopLowPriorityNotepadProcess(pService);
+    KillLowPriorityNotepadProcess(pService);
+    PrintSuccess("Process were stopped!");
 
     // Task 5b
-    SetConsoleTextAttribute(hConsole, 13);
-    cout << endl << "5b task" << endl << endl;
-    SetConsoleTextAttribute(hConsole, 7);
+    cout << endl << "Stop total commander child process" << endl << endl;
 
-    StopTotalCommanderChildProcess(pService);
+    KillTotalCommanderChildProcess(pService);
+    PrintSuccess("Total commander child process were stopped!");
 
-    // Fifth
+    // Release
     pService->Release();
     pLocator->Release();
 

@@ -1,6 +1,6 @@
 ﻿  testapp.cpp
-D:\dz\СПЗ\Projects\Lab2\Spz2\testapp.cpp(84,12): warning C4311: 'type cast': pointer truncation from 'HANDLE' to 'HRESULT'
-D:\dz\СПЗ\Projects\Lab2\Spz2\testapp.cpp(84,12): warning C4302: 'type cast': truncation from 'HANDLE' to 'HRESULT'
-D:\dz\СПЗ\Projects\Lab2\Spz2\testapp.cpp(445): warning C4715: 'StopLowPriorityNotepadProcess': not all control paths return a value
-D:\dz\СПЗ\Projects\Lab2\Spz2\testapp.cpp(569): warning C4715: 'StopTotalCommanderChildProcess': not all control paths return a value
+D:\dz\СПЗ\Projects\Lab2\Spz2\testapp.cpp(334,12): warning C4311: 'type cast': pointer truncation from 'HANDLE' to 'HRESULT'
+D:\dz\СПЗ\Projects\Lab2\Spz2\testapp.cpp(334,12): warning C4302: 'type cast': truncation from 'HANDLE' to 'HRESULT'
+D:\dz\СПЗ\Projects\Lab2\Spz2\testapp.cpp(451): warning C4715: 'KillLowPriorityNotepadProcess': not all control paths return a value
+D:\dz\СПЗ\Projects\Lab2\Spz2\testapp.cpp(575): warning C4715: 'KillTotalCommanderChildProcess': not all control paths return a value
   testapp.vcxproj -> D:\dz\СПЗ\Projects\Lab2\Spz2\x64\Debug\testapp.exe
